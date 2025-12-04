@@ -1,18 +1,31 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 export default function Home() {
   const [status, setStatus] = useState<'checking' | 'connected' | 'error'>('checking')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    checkConnection()
+    // 環境変数が設定されている場合のみ接続チェックを実行
+    if (isSupabaseConfigured()) {
+      checkConnection()
+    } else {
+      setStatus('error')
+      setMessage('環境変数が設定されていません。NEXT_PUBLIC_SUPABASE_URL と NEXT_PUBLIC_SUPABASE_ANON_KEY を設定してください。')
+    }
   }, [])
 
   const checkConnection = async () => {
     try {
+      // 環境変数の再チェック
+      if (!isSupabaseConfigured()) {
+        setStatus('error')
+        setMessage('環境変数が設定されていません。')
+        return
+      }
+
       const { data, error } = await supabase.from('_test').select('count').limit(1)
       
       if (error) {
