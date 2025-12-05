@@ -1,36 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 * {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
 }
 
+html {
+  height: 100%;
+  scroll-behavior: smooth;
+}
+
 html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
+  height: 100%;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background-color: transparent;
+  color: #EBF5FB;
+  min-height: 100vh;
+  position: relative;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
 }
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+/* スキャンラインオーバーレイ（薄いテクスチャ） */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(46, 134, 222, 0.03) 2px,
+    rgba(46, 134, 222, 0.03) 4px
+  );
+  opacity: 0.5;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+/* スクロールバーのスタイリング（細く、ダークな見た目） */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0B0C10;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2E86DE;
+  border-radius: 3px;
+  border: 1px solid #0B0C10;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3498db;
+}
+
+/* Firefox用のスクロールバースタイリング */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2E86DE #0B0C10;
+}
+
+/* 選択テキストのスタイリング */
+::selection {
+  background-color: rgba(46, 134, 222, 0.3);
+  color: #EBF5FB;
+}
+
+::-moz-selection {
+  background-color: rgba(46, 134, 222, 0.3);
+  color: #EBF5FB;
+}
+
+/* Custom animations for hologram UI */
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
   }
 }
 

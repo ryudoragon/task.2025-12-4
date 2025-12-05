@@ -1,0 +1,114 @@
+# Project Context
+You are helping build a "Gamified Social ToDo App" called **"QuestDo"**.
+
+The core concept:
+- Users manage their daily tasks as "quests".
+- Completing tasks gives XP, coins, and damage against a **weekly raid boss**.
+- There is a rich **Daily / Weekly Achievement** system that constantly unlocks small goals.
+- The main loop is:
+  - Complete tasks → gain XP & coins
+  - Unlock Daily / Weekly achievements
+  - Deal damage to the weekly boss
+  - Get rewards and titles after the boss is defeated
+
+There is **no board-game/sugoroku mode in the MVP**.
+Focus on:
+- Task management
+- Daily & Weekly achievements
+- Weekly raid boss with shared HP
+- Simple party (small group) support later
+
+# Tech Stack
+- Framework: Next.js (App Router), React, TypeScript
+- Styling: TailwindCSS
+- UI Library: shadcn/ui, Lucide React icons
+- Animations: Framer Motion (for damage, boss HP, toasts)
+- Backend: Supabase (PostgreSQL, Auth, Realtime)
+- ORM: Prisma
+- State Management (if needed): Zustand or simple React hooks
+
+# Core Domain Concepts
+- **Task**
+  - Belongs to a user.
+  - Has title, description, difficulty (EASY | NORMAL | HARD), tag, estimateMinutes, dueAt, status, completedAt.
+  - Completing a task gives XP, coins, and base damage to the current weekly boss.
+
+- **Achievement**
+  - Master data.
+  - Has scope: DAILY | WEEKLY | LIFETIME.
+  - Condition is stored in JSON (e.g. "completedTasksToday >= 3").
+  - Reward includes XP, coins, bossDamage, and optional small buffs.
+
+- **UserAchievement**
+  - Stores whether a user unlocked a given achievement and when.
+  - Daily and weekly achievements are reset by scheduled jobs (JST 04:00 for daily reset).
+
+- **BossWeek**
+  - Represents one weekly boss.
+  - Has weekKey (e.g. Monday date), name, maxHp, currentHp, affix (special modifier).
+  - All users attack the same boss for that week.
+
+- **BossHit**
+  - Log of damage dealt by a user to the weekly boss.
+  - Used for ranking and analytics.
+
+- **StatsDaily / StatsWeekly**
+  - Aggregate statistics per user (completed tasks, focusMinutes, streak, etc.).
+  - Used to evaluate achievement conditions.
+
+# Game Logic Guidelines
+- Damage formula (initial idea, can be tuned):
+  - Base damage from task:
+    - `D_task = 5 × difficultyFactor (1–3) × f(estimateMinutes) × (1 + 0.05 × streakStage)`
+  - Bonus damage from achievements:
+    - Daily achievements: `20 × tier`
+    - Weekly achievements: `80 × tier`
+
+- Streak:
+  - User has a daily/weekly streak based on continuous days with at least one completed task.
+  - There is a "grace" concept (1 allowed skip per week) to avoid hard punishment.
+
+- Boss cycle:
+  - A new boss is active from Monday 00:00 JST to Sunday 23:59 JST.
+  - If HP reaches 0 → boss is defeated and all active users get rewards.
+  - Use Supabase Realtime to broadcast `currentHp` changes.
+
+# Coding Guidelines
+- Always use **TypeScript** (no plain JS).
+- Use **functional React components and hooks**.
+- Use **Next.js App Router** (`app/` directory, server components by default).
+- For DB mutations, prefer **Next.js Server Actions** or dedicated route handlers in `app/api/`.
+- Keep game logic separated into custom hooks or utilities, for example:
+  - `useTaskActions`
+  - `useBossDamage`
+  - `useAchievements`
+- For UI:
+  - TailwindCSS for layout and styling.
+  - Use shadcn/ui components for forms, dialogs, toasts, etc.
+  - Mobile-first design, then scale up for desktop.
+- For Realtime:
+  - Use Supabase Realtime subscriptions to update boss HP in real time.
+  - Use Optimistic UI: update UI immediately, then sync with server.
+
+# Folder Structure Guidelines
+- `app/`
+  - `app/(marketing)` for public pages
+  - `app/(app)/` for authenticated app screens
+  - `app/(app)/dashboard` → main home: tasks + daily achievements + boss bar
+  - `app/api/` → route handlers or server actions
+- `lib/`
+  - `lib/db.ts` → Prisma client
+  - `lib/supabase.ts` → Supabase client (if needed)
+  - `lib/game/` → damage formulas, achievement evaluation helpers
+- `components/`
+  - `components/tasks/`
+  - `components/boss/`
+  - `components/achievements/`
+  - `components/ui/` (wrappers around shadcn/ui)
+
+# Style & Naming
+- Use **camelCase** for variables and functions.
+- Use **PascalCase** for React components and TypeScript types.
+- Use clear domain-oriented names:
+  - `Task`, `BossWeek`, `BossHit`, `Achievement`, `UserAchievement`, `StatsDaily`.
+- Avoid introducing new domains (like board games, sugoroku, or enemies on a map) unless explicitly requested.
