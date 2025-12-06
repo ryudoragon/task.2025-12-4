@@ -7,9 +7,15 @@ interface HoloPanelProps {
   children: ReactNode
   className?: string
   glowColor?: 'cyan' | 'purple' | 'fuchsia'
+  disableFloat?: boolean
 }
 
-export function HoloPanel({ children, className = '', glowColor = 'cyan' }: HoloPanelProps) {
+export function HoloPanel({
+  children,
+  className = '',
+  glowColor = 'cyan',
+  disableFloat = false,
+}: HoloPanelProps) {
   const glowConfig = {
     cyan: {
       border: 'border-cyan-400/35',
@@ -48,9 +54,10 @@ export function HoloPanel({ children, className = '', glowColor = 'cyan' }: Holo
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      whileHover={{ y: -6, scale: 1.01 }}
+      whileHover={{ y: disableFloat ? 0 : -6, scale: disableFloat ? 1 : 1.01 }}
       style={{
-        animation: 'float 6s ease-in-out infinite',
+        // CAUSE: パネル自体のfloatアニメーションが上下揺れを生んでいたため、必要に応じて無効化できるようにする
+        animation: disableFloat ? 'none' : 'float 6s ease-in-out infinite',
       }}
     >
       {/* Content */}

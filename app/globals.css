@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.cdnfonts.com/css/digital-7-mono');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap');
+
 * {
   box-sizing: border-box;
   padding: 0;
@@ -26,6 +29,25 @@ body {
   min-height: 100vh;
   position: relative;
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+}
+
+@layer utilities {
+  .font-digital {
+    font-family: 'Digital-7 Mono', 'DS-Digital', 'Segment7Standard', 'Orbitron', monospace;
+    letter-spacing: 0.1em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 7seg赤LED用 */
+  .font-analog-digital {
+    font-family: 'Digital-7 Mono', 'DS-Digital', 'Segment7Standard', monospace;
+    letter-spacing: 0.15em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 /* スキャンラインオーバーレイ（薄いテクスチャ） */

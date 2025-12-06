@@ -12,7 +12,7 @@ interface QuestNotificationProps {
 
 export function QuestNotification({
   questTitle = '【デイリークエスト: 準備】',
-  questDescription = '今日のタスクを整理せよ',
+  questDescription = '今日のクエストを整理せよ',
   xpReward = 100,
   coinReward = 50,
   onAccept,

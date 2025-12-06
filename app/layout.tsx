@@ -24,7 +24,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'QuestDo - ゲーミフィケーションToDoアプリ',
-  description: 'タスクをクエストとして管理し、レベルアップしながら冒険しよう',
+  description: 'クエストを管理し、レベルアップしながら冒険しよう',
 }
 
 export default function RootLayout({
