@@ -1,24 +1,14 @@
+import { Plus } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { HoloPanel } from '@/components/ui/HoloPanel'
+import { usePlayerStore } from '@/store/playerStore'
 
-type StatusBoardProps = {
-  level: number
-  expCurrent: number
-  expMax: number
-  coins: number
-  streakDays: number
-  playerClass: string
-}
+export function StatusBoard() {
+  const { level, currentExp, nextLevelExp, coins, str, int, mp, hp, statPoints, allocatePoint } = usePlayerStore()
+  const streakDays = 7 // Mock or from another store
+  const playerClass = "シャドウモナーク"
 
-export function StatusBoard({
-  level,
-  expCurrent,
-  expMax,
-  coins,
-  streakDays,
-  playerClass,
-}: StatusBoardProps) {
-  const expPercent = Math.min(100, (expCurrent / expMax) * 100)
+  const expPercent = Math.min(100, (currentExp / nextLevelExp) * 100)
 
   return (
     <HoloPanel
@@ -36,24 +26,65 @@ export function StatusBoard({
         </span>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-[0.25em] text-slate-400">レベル</span>
-          <span className="font-mono text-2xl text-cyan-300">{level}</span>
+      <div className="space-y-4">
+        {/* Basic Stats */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-[0.25em] text-white">レベル</span>
+            <span className="font-mono text-2xl text-white">{level}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-[0.25em] text-white">経験値</span>
+            <span className="font-mono text-lg text-white">
+              {currentExp.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-[0.25em] text-white">コイン</span>
+            <span className="font-mono text-lg text-white">{coins.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-[0.25em] text-white">連続日数</span>
+            <span className="font-mono text-lg text-white">{streakDays}日</span>
+          </div>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-[0.25em] text-slate-400">経験値</span>
-          <span className="font-mono text-lg text-cyan-300">
-            {expCurrent.toLocaleString()}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-[0.25em] text-slate-400">コイン</span>
-          <span className="font-mono text-lg text-cyan-300">{coins.toLocaleString()}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-[0.25em] text-slate-400">連続日数</span>
-          <span className="font-mono text-lg text-cyan-300">{streakDays}日</span>
+
+        {/* Extended Stats (STR/INT/MP/HP) */}
+        <div className="pt-4 border-t border-white/10 space-y-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] uppercase tracking-[0.25em] text-white">ステータス</span>
+            {statPoints > 0 && (
+              <span className="text-[10px] font-bold text-amber-300 animate-pulse">
+                割り当て可能: {statPoints}
+              </span>
+            )}
+          </div>
+
+          {(['str', 'int', 'mp', 'hp'] as const).map((stat) => (
+            <div key={stat} className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-[0.25em] text-white">
+                {stat.toUpperCase()}
+              </span>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-lg text-white">
+                  {
+                    stat === 'str' ? str :
+                      stat === 'int' ? int :
+                        stat === 'mp' ? mp :
+                          hp
+                  }
+                </span>
+                {statPoints > 0 && (
+                  <button
+                    onClick={() => allocatePoint(stat)}
+                    className="p-1 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/40 border border-amber-500/50 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -63,7 +94,7 @@ export function StatusBoard({
       </div>
 
       <div className="mt-4">
-        <p className="text-[10px] uppercase tracking-[0.25em] text-slate-400 mb-2">経験値進捗</p>
+        <p className="text-[10px] uppercase tracking-[0.25em] text-slate-400 mb-2">経験値/NEXT</p>
         <div className="relative h-2 w-full rounded-full bg-slate-900/70 overflow-hidden">
           <motion.div
             className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500"
@@ -74,10 +105,9 @@ export function StatusBoard({
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" />
         </div>
         <p className="mt-2 text-[11px] font-mono text-slate-300">
-          {expCurrent.toLocaleString()} / {expMax.toLocaleString()}
+          {currentExp.toLocaleString()} / {nextLevelExp.toLocaleString()}
         </p>
       </div>
     </HoloPanel>
   )
 }
-

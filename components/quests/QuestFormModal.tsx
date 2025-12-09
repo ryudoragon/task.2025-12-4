@@ -22,7 +22,8 @@ export interface Quest {
   isUrgent?: boolean
   isTopPriority?: boolean
   timerColor?: TimerColor
-  estimateMinutes?: number // 互換用（今後は plannedMinutes を使用）
+  estimateMinutes?: number // 互換用
+  xpReward?: number
 }
 
 interface QuestFormModalProps {
@@ -44,6 +45,7 @@ export function QuestFormModal({ isOpen, onClose, onSave, editingQuest }: QuestF
   const [isUrgent, setIsUrgent] = useState(false)
   const [isTopPriority, setIsTopPriority] = useState(false)
   const [timerColor, setTimerColor] = useState<TimerColor>('red')
+  const [xpReward, setXpReward] = useState('20')
 
   const formatDateInput = (date: Date) => {
     const year = date.getFullYear()
@@ -98,6 +100,7 @@ export function QuestFormModal({ isOpen, onClose, onSave, editingQuest }: QuestF
       setIsUrgent(!!editingQuest.isUrgent)
       setIsTopPriority(!!editingQuest.isTopPriority)
       setTimerColor(editingQuest.timerColor ?? 'red')
+      setXpReward((editingQuest.xpReward ?? 0).toString())
       setPlannedMinutesError(null)
     } else {
       setTitle('')
@@ -110,11 +113,12 @@ export function QuestFormModal({ isOpen, onClose, onSave, editingQuest }: QuestF
       setIsUrgent(false)
       setIsTopPriority(false)
       setTimerColor('red')
+      setXpReward('20')
       setPlannedMinutesError(null)
     }
   }, [editingQuest, isOpen])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!title.trim()) return
@@ -130,10 +134,10 @@ export function QuestFormModal({ isOpen, onClose, onSave, editingQuest }: QuestF
       dueDate && dueTime
         ? new Date(`${dueDate}T${dueTime}`)
         : dueDate
-        ? new Date(`${dueDate}T23:59`)
-        : undefined
+          ? new Date(`${dueDate}T23:59`)
+          : undefined
 
-    onSave({
+    await onSave({
       title: title.trim(),
       description: description.trim() || undefined,
       difficulty,
@@ -144,6 +148,7 @@ export function QuestFormModal({ isOpen, onClose, onSave, editingQuest }: QuestF
       isUrgent,
       isTopPriority,
       timerColor,
+      xpReward: Math.max(0, Number(xpReward) || 0),
     })
 
     onClose()
@@ -241,15 +246,14 @@ export function QuestFormModal({ isOpen, onClose, onSave, editingQuest }: QuestF
                       key={diff}
                       type="button"
                       onClick={() => setDifficulty(diff)}
-                      className={`px-3 py-2 rounded-xl border text-[11px] font-semibold uppercase tracking-[0.1em] transition-all ${
-                        difficulty === diff
-                          ? diff === 'EASY'
-                            ? 'border-emerald-400/60 bg-emerald-500/20 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
-                            : diff === 'NORMAL'
+                      className={`px-3 py-2 rounded-xl border text-[11px] font-semibold uppercase tracking-[0.1em] transition-all ${difficulty === diff
+                        ? diff === 'EASY'
+                          ? 'border-emerald-400/60 bg-emerald-500/20 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                          : diff === 'NORMAL'
                             ? 'border-amber-400/60 bg-amber-500/20 text-amber-200 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
                             : 'border-red-400/60 bg-red-500/20 text-red-200 shadow-[0_0_12px_rgba(239,68,68,0.3)]'
-                          : 'border-white/10 bg-white/5 text-slate-400 hover:border-cyan-400/40 hover:text-cyan-300'
-                      }`}
+                        : 'border-white/10 bg-white/5 text-slate-400 hover:border-cyan-400/40 hover:text-cyan-300'
+                        }`}
                     >
                       {diff === 'EASY' ? '簡単' : diff === 'NORMAL' ? '普通' : '困難'}
                     </button>
@@ -360,15 +364,14 @@ export function QuestFormModal({ isOpen, onClose, onSave, editingQuest }: QuestF
                       key={color}
                       type="button"
                       onClick={() => setTimerColor(color)}
-                      className={`flex-1 px-3 py-2 rounded-xl border text-sm font-semibold uppercase tracking-[0.08em] transition ${
-                        timerColor === color
-                          ? color === 'red'
-                            ? 'border-red-400/70 bg-red-500/15 text-red-200 shadow-[0_0_12px_rgba(248,113,113,0.35)]'
-                            : color === 'blue'
+                      className={`flex-1 px-3 py-2 rounded-xl border text-sm font-semibold uppercase tracking-[0.08em] transition ${timerColor === color
+                        ? color === 'red'
+                          ? 'border-red-400/70 bg-red-500/15 text-red-200 shadow-[0_0_12px_rgba(248,113,113,0.35)]'
+                          : color === 'blue'
                             ? 'border-sky-400/70 bg-sky-500/15 text-sky-200 shadow-[0_0_12px_rgba(56,189,248,0.35)]'
                             : 'border-slate-400/70 bg-slate-500/15 text-slate-100 shadow-[0_0_12px_rgba(148,163,184,0.35)]'
-                          : 'border-white/10 bg-white/5 text-slate-300 hover:border-cyan-400/50 hover:text-cyan-200'
-                      }`}
+                        : 'border-white/10 bg-white/5 text-slate-300 hover:border-cyan-400/50 hover:text-cyan-200'
+                        }`}
                     >
                       {color === 'red' ? '赤' : color === 'blue' ? '青' : '黒'}
                     </button>
@@ -406,6 +409,23 @@ export function QuestFormModal({ isOpen, onClose, onSave, editingQuest }: QuestF
                   最優先にする
                 </label>
               </div>
+
+              {/* XP Reward */}
+              <div className="pt-2 border-t border-white/10">
+                <label className="text-sm text-slate-200 mb-1 block">獲得経験値 (XP)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    step={5}
+                    value={xpReward}
+                    onChange={(e) => setXpReward(e.target.value)}
+                    className="w-24 px-3 py-2 rounded-xl border border-white/20 bg-white/10 text-slate-100"
+                    placeholder="XP"
+                  />
+                  <span className="text-xs text-slate-400">完了時に獲得できる経験値</span>
+                </div>
+              </div>
             </form>
 
             {/* Footer */}
@@ -431,5 +451,3 @@ export function QuestFormModal({ isOpen, onClose, onSave, editingQuest }: QuestF
     </AnimatePresence>
   )
 }
-
-

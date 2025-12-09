@@ -34,7 +34,7 @@ model User {
   updatedAt         DateTime  @updatedAt
   
   // Relations
-  tasks             Task[]
+  quests            Quest[]
   userAchievements  UserAchievement[]
   bossHits          BossHit[]
   statsDaily        StatsDaily[]
@@ -61,27 +61,33 @@ enum TaskStatus {
   CANCELLED
 }
 
-model Task {
+model Quest {
   id              String        @id @default(uuid())
-  userId          String
+  userId          String        @map("user_id")
   title           String
   description     String?
   difficulty      TaskDifficulty @default(NORMAL)
-  tag             String?
-  estimateMinutes Int?
-  dueAt           DateTime?
-  status          TaskStatus    @default(TODO)
-  isCompleted     Boolean       @default(false)
-  completedAt     DateTime?
   
-  // Rewards (calculated on completion)
-  xpReward        Int?
-  coinReward      Int?
-  bossDamage      Int?
+  // Custom fields from API usage
+  plannedMinutes  Int?          @map("planned_minutes")
+  dueAt           DateTime?     @map("due_at")
+  isDaily         Boolean       @default(false) @map("is_daily")
+  isUrgent        Boolean       @default(false) @map("is_urgent")
+  isTopPriority   Boolean       @default(false) @map("is_top_priority")
+  timerColor      String?       @default("red") @map("timer_color")
+  
+  status          TaskStatus    @default(TODO)
+  isCompleted     Boolean       @default(false) @map("is_completed")
+  completedAt     DateTime?     @map("completed_at")
+  
+  // Rewards
+  xpReward        Int           @default(0) @map("xp_reward")
+  coinReward      Int           @default(0) @map("coin_reward")
+  bossDamage      Int           @default(0) @map("boss_damage")
   
   // Timestamps
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
   
   // Relations
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -89,7 +95,7 @@ model Task {
   @@index([userId])
   @@index([status])
   @@index([dueAt])
-  @@map("tasks")
+  @@map("quests")
 }
 
 // ============================================

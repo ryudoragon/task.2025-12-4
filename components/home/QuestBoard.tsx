@@ -92,15 +92,16 @@ export function QuestBoard({
     const source = questsProp ?? questsFromStore
     switch (activeTab) {
       case 'daily':
-        return source.filter((t) => t.isDaily)
+        return source.filter((t) => t.isDaily && t.status !== 'COMPLETED')
       case 'urgent':
-        return source.filter((t) => t.isUrgent)
+        return source.filter((t) => t.isUrgent && t.status !== 'COMPLETED')
       case 'top':
-        return source.filter((t) => t.isTopPriority)
+        return source.filter((t) => t.isTopPriority && t.status !== 'COMPLETED')
       case 'done':
         return source.filter((t) => t.status === 'COMPLETED')
       default:
-        return source
+        // 'all' tab: Only show incomplete quests
+        return source.filter((t) => t.status !== 'COMPLETED')
     }
   }, [activeTab, questsProp, questsFromStore])
 
@@ -298,8 +299,8 @@ export function QuestBoard({
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`h-11 px-4 rounded-t-lg text-sm font-semibold transition-all border border-transparent border-b-0 ${activeTab === tab.id
-                  ? 'bg-white/15 text-white shadow-md -mb-px border-white/30'
-                  : 'text-slate-300 opacity-70 hover:opacity-100 hover:bg-white/8'
+                ? 'bg-white/15 text-white shadow-md -mb-px border-white/30'
+                : 'text-slate-300 opacity-70 hover:opacity-100 hover:bg-white/8'
                 }`}
             >
               {tab.label}
@@ -353,8 +354,8 @@ export function QuestBoard({
                 <li
                   key={quest.id}
                   className={`group relative flex flex-col gap-3 rounded-xl border p-4 transition-all hover:border-cyan-400/40 shadow-lg min-h-[300px] ${quest.status === 'COMPLETED'
-                      ? 'border-emerald-400/30 bg-white/2 backdrop-blur-md'
-                      : 'bg-white/3 backdrop-blur-md border-white/20 hover:bg-white/5'
+                    ? 'border-emerald-400/30 bg-white/2 backdrop-blur-md'
+                    : 'bg-white/3 backdrop-blur-md border-white/20 hover:bg-white/5'
                     }`}
                   style={quest.status === 'COMPLETED' ? { opacity: 0.7 } : {}}
                 >
@@ -363,8 +364,8 @@ export function QuestBoard({
                       <div className="flex items-center gap-2 mb-1">
                         <p
                           className={`text-sm font-semibold ${quest.status === 'COMPLETED'
-                              ? 'line-through text-slate-200'
-                              : 'text-white'
+                            ? 'line-through text-slate-200'
+                            : 'text-white'
                             }`}
                         >
                           {quest.title}
@@ -427,8 +428,8 @@ export function QuestBoard({
                         <button
                           onClick={() => onToggleTopPriority(quest.id)}
                           className={`p-2 rounded-lg border transition-all ${quest.isTopPriority
-                              ? 'border-amber-400/70 bg-amber-500/20 text-amber-200'
-                              : 'border-white/10 bg-white/5 text-slate-200 hover:border-amber-400/50 hover:text-amber-200 hover:bg-amber-500/10'
+                            ? 'border-amber-400/70 bg-amber-500/20 text-amber-200'
+                            : 'border-white/10 bg-white/5 text-slate-200 hover:border-amber-400/50 hover:text-amber-200 hover:bg-amber-500/10'
                             }`}
                           title="最優先にする"
                         >
@@ -439,8 +440,8 @@ export function QuestBoard({
                         onClick={() => onToggleStatus(quest.id)}
                         disabled={completingIds?.has(quest.id)}
                         className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] transition-all ${quest.status === 'COMPLETED'
-                            ? 'border-emerald-400/60 bg-emerald-500/30 text-emerald-200 hover:bg-emerald-500/40'
-                            : 'border-emerald-400/60 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
+                          ? 'border-emerald-400/60 bg-emerald-500/30 text-emerald-200 hover:bg-emerald-500/40'
+                          : 'border-emerald-400/60 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
                           } ${completingIds?.has(quest.id) ? 'opacity-60 cursor-not-allowed' : ''}`}
                       >
                         {quest.status === 'COMPLETED'

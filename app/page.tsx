@@ -23,11 +23,7 @@ export default function HomePage() {
   const [bgId, setBgId] = useState<'cyber' | 'light' | 'dark'>('cyber')
   const currentBg = BACKGROUNDS.find((b) => b.id === bgId)!
 
-  // プレイヤーステータス
-  const [playerLevel, setPlayerLevel] = useState(5)
-  const [playerExp, setPlayerExp] = useState(2450)
-  const [playerCoins, setPlayerCoins] = useState(1250)
-  const [streakDays] = useState(7)
+  // プレイヤーステータス (Moved to store)
 
   const [activeBoard, setActiveBoard] = useState<BoardTab>('quest')
 
@@ -211,24 +207,14 @@ export default function HomePage() {
         })
         return
       }
-      const newExp = playerExp + rewards.exp
-      const newCoins = playerCoins + rewards.coins
-      const newLevel = calculateLevel(newExp)
-      setPlayerExp(newExp)
-      setPlayerCoins(newCoins)
-      if (newLevel > playerLevel) setPlayerLevel(newLevel)
+      // EXP/Coins are now handled in store/questsStore via playerStore
     } else {
       setQuests((prev) =>
         prev.map((q) =>
           q.id === questId ? { ...q, status: 'TODO' as QuestStatus, isCompleted: false } : q
         )
       )
-      const newExp = Math.max(0, playerExp - rewards.exp)
-      const newCoins = Math.max(0, playerCoins - rewards.coins)
-      const newLevel = calculateLevel(newExp)
-      setPlayerExp(newExp)
-      setPlayerCoins(newCoins)
-      setPlayerLevel(newLevel)
+      // Reverting EXP is tricky if we don't track history, for now just revert status
     }
     setCompletingIds((prev) => {
       const next = new Set(prev)
@@ -355,11 +341,10 @@ export default function HomePage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveBoard(tab.id as BoardTab)}
-                className={`h-11 px-4 rounded-full text-sm font-semibold tracking-wide border transition ${
-                  activeBoard === tab.id
-                    ? 'border-cyan-400/80 bg-cyan-500/20 text-cyan-100'
-                    : 'border-white/10 bg-white/5 text-slate-200 hover:border-cyan-400/40 hover:text-cyan-100'
-                }`}
+                className={`h-11 px-4 rounded-full text-sm font-semibold tracking-wide border transition ${activeBoard === tab.id
+                  ? 'border-cyan-400/80 bg-cyan-500/20 text-cyan-100'
+                  : 'border-white/10 bg-white/5 text-slate-200 hover:border-cyan-400/40 hover:text-cyan-100'
+                  }`}
               >
                 {tab.label}
               </button>
@@ -368,14 +353,7 @@ export default function HomePage() {
 
           {/* ボード本体 */}
           {activeBoard === 'status' && (
-            <StatusBoard
-              level={playerLevel}
-              expCurrent={playerExp}
-              expMax={(playerLevel + 1) * 1000}
-              coins={playerCoins}
-              streakDays={streakDays}
-              playerClass="シャドウモナーク"
-            />
+            <StatusBoard />
           )}
 
           {activeBoard === 'quest' && (
@@ -412,11 +390,11 @@ export default function HomePage() {
         initialValue={
           editingQuest
             ? {
-                title: editingQuest.title,
-                description: editingQuest.description ?? '',
-                dueDate: editingQuest.dueAt ?? null,
-                plannedMinutes: editingQuest.plannedMinutes ?? 25,
-              }
+              title: editingQuest.title,
+              description: editingQuest.description ?? '',
+              dueDate: editingQuest.dueAt ?? null,
+              plannedMinutes: editingQuest.plannedMinutes ?? 25,
+            }
             : undefined
         }
         onSave={handleSaveQuest}
