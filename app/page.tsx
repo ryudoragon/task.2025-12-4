@@ -1,11 +1,15 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Task, TaskStatus, TimerColor } from '@/components/tasks/TaskModal'
+import { Quest, QuestStatus, TimerColor } from '@/components/quests/QuestFormModal'
 import { QuestModal, QuestInput } from '@/components/quests/QuestModal'
 import { QuestBoard, QuestTimerState } from '@/components/home/QuestBoard'
 import { StatusBoard } from '@/components/home/StatusBoard'
 import { BossBoard } from '@/components/home/BossBoard'
+import { useFocusStore } from '@/store/focusStore'
+import { FocusMode } from '@/components/focus/FocusMode'
+import { useQuestsStore } from '@/store/questsStore'
+import { createQuest } from '@/lib/quests'
 
 const BACKGROUNDS = [
   { id: 'cyber', label: 'サイバー', url: '/dashbord-cyber-bg.png' },
@@ -27,65 +31,48 @@ export default function HomePage() {
 
   const [activeBoard, setActiveBoard] = useState<BoardTab>('quest')
 
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: '1',
-      title: 'ニューラルリンク調整',
-      description: 'ニューラルインターフェースシステムの調整',
-      difficulty: 'HARD',
-      status: 'TODO',
-      dueAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
-      plannedMinutes: 45,
-      isDaily: false,
-      isUrgent: true,
-      isTopPriority: true,
-    },
-    {
-      id: '2',
-      title: 'データストリーム最適化',
-      description: 'データ処理ストリームの最適化',
-      difficulty: 'NORMAL',
-      status: 'TODO',
-      dueAt: new Date(Date.now() + 5 * 60 * 60 * 1000),
-      plannedMinutes: 30,
-      isDaily: true,
-      isUrgent: false,
-      isTopPriority: false,
-    },
-    {
-      id: '3',
-      title: 'システム診断',
-      description: 'システム全体の診断チェックを実行',
-      difficulty: 'EASY',
-      status: 'TODO',
-      dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      plannedMinutes: 20,
-      isDaily: false,
-      isUrgent: false,
-      isTopPriority: false,
-    },
-  ])
+  const quests = useQuestsStore((s) => s.quests)
+  const hydrateQuests = useQuestsStore((s) => s.hydrate)
+  const setQuests = useQuestsStore((s) => s.setQuests)
+  const addQuest = useQuestsStore((s) => s.addQuest)
+  const updateQuest = useQuestsStore((s) => s.updateQuest)
+  const deleteQuest = useQuestsStore((s) => s.deleteQuest)
+  const toggleTopPriority = useQuestsStore((s) => s.toggleTopPriority)
+  const completeQuest = useQuestsStore((s) => s.completeQuest)
+  const isFocusMode = useFocusStore((s) => s.isFocusMode)
+  const currentFocusQuestId = useFocusStore((s) => s.currentQuestId)
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false)
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [editingQuest, setEditingQuest] = useState<Quest | null>(null)
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set())
+
+  const focusQuestTitle = useMemo(
+    () => quests.find((q) => q.id === currentFocusQuestId)?.title,
+    [quests, currentFocusQuestId]
+  )
 
   // タイマー状態管理
-  const [taskTimers, setTaskTimers] = useState<Record<string, QuestTimerState>>({})
+  const [questTimers, setQuestTimers] = useState<Record<string, QuestTimerState>>({})
+
+  // 初期ロード時にサーバーデータを取得
+  useEffect(() => {
+    hydrateQuests()
+  }, [hydrateQuests])
 
   // タイマー初期化・同期
   useEffect(() => {
-    setTaskTimers((prev) => {
+    setQuestTimers((prev) => {
       const updated: Record<string, QuestTimerState> = { ...prev }
-      tasks.forEach((task) => {
-        const plannedSeconds = (task.plannedMinutes ?? 25) * 60
-        if (!updated[task.id]) {
-          updated[task.id] = {
+      quests.forEach((quest) => {
+        const plannedSeconds = (quest.plannedMinutes ?? 25) * 60
+        if (!updated[quest.id]) {
+          updated[quest.id] = {
             remainingSeconds: plannedSeconds,
             plannedSeconds,
             status: 'idle',
           }
         } else {
-          const existing = updated[task.id]
-          updated[task.id] = {
+          const existing = updated[quest.id]
+          updated[quest.id] = {
             ...existing,
             plannedSeconds,
             ...(existing.status === 'idle' ? { remainingSeconds: plannedSeconds } : {}),
@@ -94,27 +81,27 @@ export default function HomePage() {
       })
       // remove timers for deleted tasks
       Object.keys(updated).forEach((id) => {
-        if (!tasks.find((t) => t.id === id)) delete updated[id]
+        if (!quests.find((q) => q.id === id)) delete updated[id]
       })
       return updated
     })
-  }, [tasks])
+  }, [quests])
 
   // タイマー進行
   const hasRunning = useMemo(
-    () => Object.values(taskTimers).some((t) => t.status === 'running'),
-    [taskTimers]
+    () => Object.values(questTimers).some((t) => t.status === 'running'),
+    [questTimers]
   )
 
   useEffect(() => {
     if (!hasRunning) return
     const id = setInterval(() => {
-      setTaskTimers((prev) => {
+      setQuestTimers((prev) => {
         const next = { ...prev }
-        Object.entries(prev).forEach(([taskId, timer]) => {
+        Object.entries(prev).forEach(([questId, timer]) => {
           if (timer.status === 'running') {
             const remaining = Math.max(0, timer.remainingSeconds - 1)
-            next[taskId] = {
+            next[questId] = {
               ...timer,
               remainingSeconds: remaining,
               status: remaining === 0 ? 'finished' : 'running',
@@ -128,58 +115,66 @@ export default function HomePage() {
   }, [hasRunning])
 
   const openAddModal = () => {
-    setEditingTask(null)
+    setEditingQuest(null)
     setIsQuestModalOpen(true)
   }
 
-  const handleEditTask = (task: Task) => {
-    setEditingTask(task)
+  const handleEditQuest = (quest: Quest) => {
+    setEditingQuest(quest)
     setIsQuestModalOpen(true)
   }
 
   const handleSaveQuest = (questData: QuestInput) => {
     const safePlannedMinutes = questData.plannedMinutes ?? 25
-    if (editingTask) {
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === editingTask.id
-            ? {
-                ...t,
-                title: questData.title,
-                description: questData.description || undefined,
-                dueAt: questData.dueDate ?? undefined,
-                plannedMinutes: safePlannedMinutes,
-              }
-            : t
-        )
-      )
-    } else {
-      const newTask: Task = {
-        id: Date.now().toString(),
+    if (editingQuest) {
+      updateQuest(editingQuest.id, (q) => ({
+        ...q,
         title: questData.title,
         description: questData.description || undefined,
-        difficulty: 'NORMAL',
-        status: 'TODO',
         dueAt: questData.dueDate ?? undefined,
         plannedMinutes: safePlannedMinutes,
-        isDaily: false,
-        isUrgent: false,
-        isTopPriority: false,
-        timerColor: 'red',
-      }
-      setTasks((prev) => [...prev, newTask])
+      }))
+    } else {
+      createQuest({
+        title: questData.title,
+        description: questData.description,
+        plannedMinutes: safePlannedMinutes,
+        dueAt: questData.dueDate ? questData.dueDate.toISOString() : null,
+      })
+        .then((record) => {
+          const newQuest: Quest = {
+            id: record.id,
+            title: record.title,
+            description: record.description ?? undefined,
+            difficulty: (record.difficulty as Quest['difficulty']) ?? 'NORMAL',
+            status: (record.status as QuestStatus) ?? 'TODO',
+            isCompleted: record.is_completed ?? false,
+            completedAt: record.completed_at ? new Date(record.completed_at) : undefined,
+            plannedMinutes: record.planned_minutes ?? safePlannedMinutes,
+            isDaily: record.is_daily ?? false,
+            isUrgent: record.is_urgent ?? false,
+            isTopPriority: record.is_top_priority ?? false,
+            timerColor: (record.timer_color as Quest['timerColor']) ?? 'red',
+            dueAt: record.due_at ? new Date(record.due_at) : undefined,
+          }
+          addQuest(newQuest)
+        })
+        .catch((err) => {
+          console.error(err)
+          alert(`クエスト作成に失敗しました: ${err?.message ?? '詳細不明'}`)
+        })
     }
     setIsQuestModalOpen(false)
-    setEditingTask(null)
+    setEditingQuest(null)
   }
 
-  const handleDeleteTask = (taskId: string) => {
+  const handleDeleteQuest = (questId: string) => {
     if (confirm('このクエストを削除しますか？')) {
-      setTasks((prev) => prev.filter((t) => t.id !== taskId))
+      deleteQuest(questId)
     }
   }
 
-  const getTaskRewards = (difficulty: Task['difficulty']) => {
+  const getQuestRewards = (difficulty: Quest['difficulty']) => {
     switch (difficulty) {
       case 'EASY':
         return { exp: 50, coins: 25 }
@@ -191,108 +186,130 @@ export default function HomePage() {
   }
 
   const calculateLevel = (exp: number) => Math.floor(exp / 1000) + 1
-  const getExpForNextLevel = (level: number) => level * 1000
   const getCurrentLevelExp = (exp: number) => exp % 1000
 
-  const handleToggleTaskStatus = (taskId: string) => {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const newStatus: TaskStatus = t.status === 'COMPLETED' ? 'TODO' : 'COMPLETED'
-          const isCompleting = newStatus === 'COMPLETED'
-          const rewards = getTaskRewards(t.difficulty)
-          if (isCompleting) {
-            const newExp = playerExp + rewards.exp
-            const newCoins = playerCoins + rewards.coins
-            const newLevel = calculateLevel(newExp)
-            setPlayerExp(newExp)
-            setPlayerCoins(newCoins)
-            if (newLevel > playerLevel) setPlayerLevel(newLevel)
-          } else {
-            const newExp = Math.max(0, playerExp - rewards.exp)
-            const newCoins = Math.max(0, playerCoins - rewards.coins)
-            const newLevel = calculateLevel(newExp)
-            setPlayerExp(newExp)
-            setPlayerCoins(newCoins)
-            setPlayerLevel(newLevel)
-          }
-          return { ...t, status: newStatus }
-        }
-        return t
-      })
-    )
-  }
+  const handleToggleQuestStatus = async (questId: string) => {
+    if (completingIds.has(questId)) return
+    const target = quests.find((t) => t.id === questId)
+    if (!target) return
 
-  const handleToggleTopPriority = (taskId: string) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, isTopPriority: !t.isTopPriority } : t))
-    )
-  }
+    console.info('QuestBoard: 完了トグル', { questId, currentStatus: target.status })
+    const rewards = getQuestRewards(target.difficulty)
+    const isCompleting = target.status !== 'COMPLETED'
 
-  const handleTimerColorChange = (taskId: string, color: TimerColor) => {
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, timerColor: color } : t)))
-  }
-
-  // タイマー操作ヘルパー
-  const updateTimer = (taskId: string, updater: (timer: QuestTimerState) => QuestTimerState) => {
-    setTaskTimers((prev) => {
-      const existing = prev[taskId]
-      if (!existing) return prev
-      return { ...prev, [taskId]: updater(existing) }
+    if (isCompleting) {
+      setCompletingIds((prev) => new Set(prev).add(questId))
+      try {
+        await completeQuest(questId)
+      } catch (err: any) {
+        console.error(err)
+        alert(`クエスト完了の更新に失敗しました: ${err?.message ?? '詳細不明'}`)
+        setCompletingIds((prev) => {
+          const next = new Set(prev)
+          next.delete(questId)
+          return next
+        })
+        return
+      }
+      const newExp = playerExp + rewards.exp
+      const newCoins = playerCoins + rewards.coins
+      const newLevel = calculateLevel(newExp)
+      setPlayerExp(newExp)
+      setPlayerCoins(newCoins)
+      if (newLevel > playerLevel) setPlayerLevel(newLevel)
+    } else {
+      setQuests((prev) =>
+        prev.map((q) =>
+          q.id === questId ? { ...q, status: 'TODO' as QuestStatus, isCompleted: false } : q
+        )
+      )
+      const newExp = Math.max(0, playerExp - rewards.exp)
+      const newCoins = Math.max(0, playerCoins - rewards.coins)
+      const newLevel = calculateLevel(newExp)
+      setPlayerExp(newExp)
+      setPlayerCoins(newCoins)
+      setPlayerLevel(newLevel)
+    }
+    setCompletingIds((prev) => {
+      const next = new Set(prev)
+      next.delete(questId)
+      return next
     })
   }
 
-  const handleStartTimer = (taskId: string) => {
-    setTaskTimers((prev) => {
-      const task = tasks.find((t) => t.id === taskId)
-      if (!task) return prev
-      const plannedSeconds = (task.plannedMinutes ?? 25) * 60
-      const base = prev[taskId] ?? {
+  const handleToggleTopPriority = (questId: string) => {
+    toggleTopPriority(questId)
+  }
+
+  const handleTimerColorChange = (questId: string, color: TimerColor) => {
+    setQuests((prev) => prev.map((t) => (t.id === questId ? { ...t, timerColor: color } : t)))
+  }
+
+  // タイマー操作ヘルパー
+  const updateTimer = (questId: string, updater: (timer: QuestTimerState) => QuestTimerState) => {
+    setQuestTimers((prev) => {
+      const existing = prev[questId]
+      if (!existing) return prev
+      return { ...prev, [questId]: updater(existing) }
+    })
+  }
+
+  const handleStartTimer = (questId: string) => {
+    setQuestTimers((prev) => {
+      const quest = quests.find((t) => t.id === questId)
+      if (!quest) return prev
+      const plannedSeconds = (quest.plannedMinutes ?? 25) * 60
+      const base = prev[questId] ?? {
         remainingSeconds: plannedSeconds,
         plannedSeconds,
         status: 'idle' as const,
       }
       return {
         ...prev,
-        [taskId]: { ...base, remainingSeconds: base.remainingSeconds, status: 'running' },
+        [questId]: { ...base, remainingSeconds: base.remainingSeconds, status: 'running' },
       }
     })
   }
 
-  const handlePauseTimer = (taskId: string) =>
-    updateTimer(taskId, (timer) => ({ ...timer, status: 'paused' }))
+  const handlePauseTimer = (questId: string) =>
+    updateTimer(questId, (timer) => ({ ...timer, status: 'paused' }))
 
-  const handleResumeTimer = (taskId: string) =>
-    updateTimer(taskId, (timer) => ({ ...timer, status: 'running' }))
+  const handleResumeTimer = (questId: string) =>
+    updateTimer(questId, (timer) => ({ ...timer, status: 'running' }))
 
-  const handleCancelTimer = (taskId: string) => {
-    const task = tasks.find((t) => t.id === taskId)
-    if (!task) return
-    const plannedSeconds = (task.plannedMinutes ?? 25) * 60
-    setTaskTimers((prev) => ({
+  const handleCancelTimer = (questId: string) => {
+    const quest = quests.find((t) => t.id === questId)
+    if (!quest) return
+    const plannedSeconds = (quest.plannedMinutes ?? 25) * 60
+    setQuestTimers((prev) => ({
       ...prev,
-      [taskId]: { remainingSeconds: plannedSeconds, plannedSeconds, status: 'idle' },
+      [questId]: { remainingSeconds: plannedSeconds, plannedSeconds, status: 'idle' },
     }))
   }
 
-  const handleAddTime = (taskId: string, seconds: number) => {
-    updateTimer(taskId, (timer) => {
+  const handleAddTime = (questId: string, seconds: number) => {
+    updateTimer(questId, (timer) => {
       const nextRemaining = Math.max(60, timer.remainingSeconds + seconds)
       return { ...timer, remainingSeconds: nextRemaining }
     })
   }
 
-  const handleFinishTaskFromTimer = (taskId: string) => {
-    handleToggleTaskStatus(taskId)
-    handleCancelTimer(taskId)
+  const handleFinishQuestFromTimer = async (questId: string) => {
+    console.info('QuestBoard: タイマー完了→完了処理', { questId })
+    await handleToggleQuestStatus(questId)
+    handleCancelTimer(questId)
   }
 
-  const handleExtendAfterFinish = (taskId: string, seconds: number) => {
-    updateTimer(taskId, (timer) => ({
+  const handleExtendAfterFinish = (questId: string, seconds: number) => {
+    updateTimer(questId, (timer) => ({
       ...timer,
       remainingSeconds: timer.remainingSeconds + seconds,
       status: 'running',
     }))
+  }
+
+  if (isFocusMode && currentFocusQuestId) {
+    return <FocusMode questId={currentFocusQuestId} questTitle={focusQuestTitle} />
   }
 
   return (
@@ -363,19 +380,20 @@ export default function HomePage() {
 
           {activeBoard === 'quest' && (
             <QuestBoard
-              tasks={tasks}
-              timers={taskTimers}
+              quests={quests}
+              timers={questTimers}
+              completingIds={completingIds}
               onAdd={openAddModal}
-              onEdit={handleEditTask}
-              onDelete={handleDeleteTask}
-              onToggleStatus={handleToggleTaskStatus}
+              onEdit={handleEditQuest}
+              onDelete={handleDeleteQuest}
+              onToggleStatus={handleToggleQuestStatus}
               onToggleTopPriority={handleToggleTopPriority}
               onStartTimer={handleStartTimer}
               onPauseTimer={handlePauseTimer}
               onResumeTimer={handleResumeTimer}
               onCancelTimer={handleCancelTimer}
               onAddTime={handleAddTime}
-              onFinishTaskFromTimer={handleFinishTaskFromTimer}
+              onFinishQuestFromTimer={handleFinishQuestFromTimer}
               onExtendAfterFinish={handleExtendAfterFinish}
               onChangeTimerColor={handleTimerColorChange}
             />
@@ -389,15 +407,15 @@ export default function HomePage() {
         open={isQuestModalOpen}
         onClose={() => {
           setIsQuestModalOpen(false)
-          setEditingTask(null)
+          setEditingQuest(null)
         }}
         initialValue={
-          editingTask
+          editingQuest
             ? {
-                title: editingTask.title,
-                description: editingTask.description ?? '',
-                dueDate: editingTask.dueAt ?? null,
-                plannedMinutes: editingTask.plannedMinutes ?? 25,
+                title: editingQuest.title,
+                description: editingQuest.description ?? '',
+                dueDate: editingQuest.dueAt ?? null,
+                plannedMinutes: editingQuest.plannedMinutes ?? 25,
               }
             : undefined
         }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { AdventureMap } from '@/components/adventure/AdventureMap'
-import { TaskList } from '@/components/adventure/TaskList'
+import { QuestList } from '@/components/adventure/QuestList'
 import { SystemCard } from '@/components/ui/SystemCard'
 import { CyberInput } from '@/components/ui/CyberInput'
 import { CyberButton } from '@/components/ui/CyberButton'
@@ -66,7 +66,7 @@ export default function AdventurePage() {
           </div>
 
           {/* クエストリスト */}
-          <TaskList />
+          <QuestList />
         </SystemCard>
       </div>
     </main>

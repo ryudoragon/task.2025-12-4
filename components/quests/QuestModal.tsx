@@ -198,17 +198,17 @@ export const QuestModal: React.FC<QuestModalProps> = ({
                 <div className="flex flex-wrap items-center gap-1 text-xs">
                   <button
                     type="button"
-                    onClick={() => handleMinutesChange(-1)}
+                    onClick={() => handleMinutesChange(-15)}
                     className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20"
                   >
-                    -1
+                    -15分
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleMinutesChange(1)}
+                    onClick={() => handleMinutesChange(-5)}
                     className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20"
                   >
-                    +1
+                    -5分
                   </button>
                   <button
                     type="button"

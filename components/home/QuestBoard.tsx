@@ -1,5 +1,7 @@
+'use client'
+
 import { useMemo, useState } from 'react'
-import { Task, TimerColor } from '@/components/tasks/TaskModal'
+import { Quest, TimerColor } from '@/components/quests/QuestFormModal'
 import { HoloPanel } from '@/components/ui/HoloPanel'
 import { motion } from 'framer-motion'
 import {
@@ -15,6 +17,8 @@ import {
   Clock,
   SquareMinus,
 } from 'lucide-react'
+import { useFocusStore } from '@/store/focusStore'
+import { useQuestsStore } from '@/store/questsStore'
 
 export type QuestTimerStatus = 'idle' | 'running' | 'paused' | 'finished'
 
@@ -25,21 +29,22 @@ export type QuestTimerState = {
 }
 
 type QuestBoardProps = {
-  tasks: Task[]
+  quests?: Quest[] // 互換用。実際はクエストストアから取得して描画する
   onAdd: () => void
-  onEdit: (task: Task) => void
-  onDelete: (taskId: string) => void
-  onToggleStatus: (taskId: string) => void
-  onToggleTopPriority: (taskId: string) => void
+  onEdit: (quest: Quest) => void
+  onDelete: (questId: string) => void
+  onToggleStatus: (questId: string) => void
+  onToggleTopPriority: (questId: string) => void
+  completingIds?: Set<string>
   timers: Record<string, QuestTimerState>
-  onStartTimer: (taskId: string) => void
-  onPauseTimer: (taskId: string) => void
-  onResumeTimer: (taskId: string) => void
-  onCancelTimer: (taskId: string) => void
-  onAddTime: (taskId: string, seconds: number) => void
-  onFinishTaskFromTimer: (taskId: string) => void
-  onExtendAfterFinish: (taskId: string, seconds: number) => void
-  onChangeTimerColor: (taskId: string, color: TimerColor) => void
+  onStartTimer: (questId: string) => void
+  onPauseTimer: (questId: string) => void
+  onResumeTimer: (questId: string) => void
+  onCancelTimer: (questId: string) => void
+  onAddTime: (questId: string, seconds: number) => void
+  onFinishQuestFromTimer: (questId: string) => void
+  onExtendAfterFinish: (questId: string, seconds: number) => void
+  onChangeTimerColor: (questId: string, color: TimerColor) => void
 }
 
 const TABS = [
@@ -61,7 +66,7 @@ const formatTime = (seconds: number) => {
 }
 
 export function QuestBoard({
-  tasks,
+  quests: questsProp,
   onAdd,
   onEdit,
   onDelete,
@@ -73,42 +78,52 @@ export function QuestBoard({
   onResumeTimer,
   onCancelTimer,
   onAddTime,
-  onFinishTaskFromTimer,
+  onFinishQuestFromTimer,
   onExtendAfterFinish,
   onChangeTimerColor,
+  completingIds,
 }: QuestBoardProps) {
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]['id']>('all')
+  const setFocusMode = useFocusStore((s) => s.setFocusMode)
+  const setCurrentQuestId = useFocusStore((s) => s.setCurrentQuestId)
+  const questsFromStore = useQuestsStore((s) => s.quests)
 
-  const filteredTasks = useMemo(() => {
+  const filteredQuests = useMemo(() => {
+    const source = questsProp ?? questsFromStore
     switch (activeTab) {
       case 'daily':
-        return tasks.filter((t) => t.isDaily)
+        return source.filter((t) => t.isDaily)
       case 'urgent':
-        return tasks.filter((t) => t.isUrgent)
+        return source.filter((t) => t.isUrgent)
       case 'top':
-        return tasks.filter((t) => t.isTopPriority)
+        return source.filter((t) => t.isTopPriority)
       case 'done':
-        return tasks.filter((t) => t.status === 'COMPLETED')
+        return source.filter((t) => t.status === 'COMPLETED')
       default:
-        return tasks
+        return source
     }
-  }, [activeTab, tasks])
+  }, [activeTab, questsProp, questsFromStore])
 
-  const getTimer = (taskId: string): QuestTimerState | undefined => timers[taskId]
+  const getTimer = (questId: string): QuestTimerState | undefined => timers[questId]
 
-  const renderTimerControls = (task: Task) => {
-    const timer = getTimer(task.id)
-    const remaining = timer?.remainingSeconds ?? (task.plannedMinutes ?? 25) * 60
+  const handleEnterFocusMode = (quest: Quest) => {
+    setCurrentQuestId(quest.id)
+    setFocusMode(true)
+  }
+
+  const renderTimerControls = (quest: Quest) => {
+    const timer = getTimer(quest.id)
+    const remaining = timer?.remainingSeconds ?? (quest.plannedMinutes ?? 25) * 60
     const status = timer?.status ?? 'idle'
     const isFinished = status === 'finished'
     const isLow = remaining <= 60
-    const color = task.timerColor ?? 'red'
+    const color = quest.timerColor ?? 'red'
     const colorClass =
       color === 'black'
         ? 'text-black dark:text-slate-100'
         : color === 'blue'
-        ? 'text-sky-400'
-        : 'text-red-500'
+          ? 'text-sky-400'
+          : 'text-red-500'
 
     return (
       <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 space-y-2 min-h-[200px]">
@@ -152,7 +167,7 @@ export function QuestBoard({
             return (
               <button
                 key={c}
-                onClick={() => onChangeTimerColor(task.id, c)}
+                onClick={() => onChangeTimerColor(quest.id, c)}
                 className={`${base} ${active ? activeCls : inactiveCls}`}
               >
                 {c === 'red' ? '赤' : c === 'black' ? '黒' : '青'}
@@ -165,7 +180,7 @@ export function QuestBoard({
           <div className="flex flex-wrap gap-2">
             {status === 'idle' && (
               <button
-                onClick={() => onStartTimer(task.id)}
+                onClick={() => onStartTimer(quest.id)}
                 className="flex-1 min-w-[140px] rounded-lg border border-cyan-400/60 bg-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
               >
                 <div className="flex items-center justify-center gap-2">
@@ -176,7 +191,7 @@ export function QuestBoard({
             )}
             {status === 'running' && (
               <button
-                onClick={() => onPauseTimer(task.id)}
+                onClick={() => onPauseTimer(quest.id)}
                 className="flex-1 min-w-[120px] rounded-lg border border-amber-400/60 bg-amber-500/20 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-500/30 transition"
               >
                 <div className="flex items-center justify-center gap-2">
@@ -187,7 +202,7 @@ export function QuestBoard({
             )}
             {status === 'paused' && (
               <button
-                onClick={() => onResumeTimer(task.id)}
+                onClick={() => onResumeTimer(quest.id)}
                 className="flex-1 min-w-[120px] rounded-lg border border-emerald-400/60 bg-emerald-500/20 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-500/30 transition"
               >
                 <div className="flex items-center justify-center gap-2">
@@ -198,7 +213,7 @@ export function QuestBoard({
             )}
             {(status === 'running' || status === 'paused') && (
               <button
-                onClick={() => onCancelTimer(task.id)}
+                onClick={() => onCancelTimer(quest.id)}
                 className="rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/10 transition"
               >
                 <div className="flex items-center justify-center gap-2">
@@ -209,25 +224,25 @@ export function QuestBoard({
             )}
             <div className="flex items-center gap-2 ml-auto text-xs">
               <button
-                onClick={() => onAddTime(task.id, -900)}
+                onClick={() => onAddTime(quest.id, -900)}
                 className="rounded-lg border border-white/15 bg-white/5 px-2 py-2 text-slate-200 hover:bg-white/10 transition"
               >
                 -15分
               </button>
               <button
-                onClick={() => onAddTime(task.id, -300)}
+                onClick={() => onAddTime(quest.id, -300)}
                 className="rounded-lg border border-white/15 bg-white/5 px-2 py-2 text-slate-200 hover:bg-white/10 transition"
               >
                 -5分
               </button>
               <button
-                onClick={() => onAddTime(task.id, 300)}
+                onClick={() => onAddTime(quest.id, 300)}
                 className="rounded-lg border border-white/15 bg-white/5 px-2 py-2 text-slate-200 hover:bg-white/10 transition"
               >
                 +5分
               </button>
               <button
-                onClick={() => onAddTime(task.id, 900)}
+                onClick={() => onAddTime(quest.id, 900)}
                 className="rounded-lg border border-white/15 bg-white/5 px-2 py-2 text-slate-200 hover:bg-white/10 transition"
               >
                 +15分
@@ -242,7 +257,7 @@ export function QuestBoard({
             </div>
             <div className="flex gap-2 flex-wrap">
               <button
-                onClick={() => onFinishTaskFromTimer(task.id)}
+                onClick={() => onFinishQuestFromTimer(quest.id)}
                 className="flex-1 min-w-[140px] rounded-lg border border-emerald-400/60 bg-emerald-500/20 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-500/30 transition"
               >
                 <div className="flex items-center justify-center gap-2">
@@ -251,13 +266,13 @@ export function QuestBoard({
                 </div>
               </button>
               <button
-                onClick={() => onExtendAfterFinish(task.id, 300)}
+                onClick={() => onExtendAfterFinish(quest.id, 300)}
                 className="rounded-lg border border-cyan-400/60 bg-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
               >
                 +5分延長
               </button>
               <button
-                onClick={() => onExtendAfterFinish(task.id, 900)}
+                onClick={() => onExtendAfterFinish(quest.id, 900)}
                 className="rounded-lg border border-cyan-400/60 bg-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
               >
                 +15分延長
@@ -282,11 +297,10 @@ export function QuestBoard({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`h-11 px-4 rounded-t-lg text-sm font-semibold transition-all border border-transparent border-b-0 ${
-                activeTab === tab.id
+              className={`h-11 px-4 rounded-t-lg text-sm font-semibold transition-all border border-transparent border-b-0 ${activeTab === tab.id
                   ? 'bg-white/15 text-white shadow-md -mb-px border-white/30'
                   : 'text-slate-300 opacity-70 hover:opacity-100 hover:bg-white/8'
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -326,109 +340,120 @@ export function QuestBoard({
 
       <div className="flex-1 min-h-[600px]">
         {/* CAUSE: タブ/タイマー切替でリスト全体の高さが再計算され揺れる → リストコンテナにmin-hを設定 */}
-        {filteredTasks.length === 0 ? (
+        {filteredQuests.length === 0 ? (
           <div className="text-center py-10 text-slate-400">
             <p className="text-sm">クエストがありません</p>
             <p className="text-[11px] text-slate-500 mt-1">+ボタンでクエストを追加してください</p>
           </div>
         ) : (
           <ul className="space-y-3">
-            {filteredTasks.map((task) => {
-              const timer = getTimer(task.id)
+            {filteredQuests.map((quest) => {
+              const timer = getTimer(quest.id)
               return (
                 <li
-                  key={task.id}
-                  className={`group relative flex flex-col gap-3 rounded-xl border p-4 transition-all hover:border-cyan-400/40 shadow-lg min-h-[300px] ${
-                    task.status === 'COMPLETED'
+                  key={quest.id}
+                  className={`group relative flex flex-col gap-3 rounded-xl border p-4 transition-all hover:border-cyan-400/40 shadow-lg min-h-[300px] ${quest.status === 'COMPLETED'
                       ? 'border-emerald-400/30 bg-white/2 backdrop-blur-md'
                       : 'bg-white/3 backdrop-blur-md border-white/20 hover:bg-white/5'
-                  }`}
-                  style={task.status === 'COMPLETED' ? { opacity: 0.7 } : {}}
+                    }`}
+                  style={quest.status === 'COMPLETED' ? { opacity: 0.7 } : {}}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p
-                          className={`text-sm font-semibold ${
-                            task.status === 'COMPLETED' ? 'line-through text-slate-200' : 'text-white'
-                          }`}
+                          className={`text-sm font-semibold ${quest.status === 'COMPLETED'
+                              ? 'line-through text-slate-200'
+                              : 'text-white'
+                            }`}
                         >
-                          {task.title}
+                          {quest.title}
                         </p>
-                        {task.isDaily && (
+                        {quest.isDaily && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full border border-cyan-400/40 bg-cyan-500/10 text-cyan-200">
                             毎日
                           </span>
                         )}
-                        {task.isUrgent && (
+                        {quest.isUrgent && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full border border-red-400/40 bg-red-500/10 text-red-200">
                             緊急
                           </span>
                         )}
-                        {task.isTopPriority && (
+                        {quest.isTopPriority && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full border border-amber-400/40 bg-amber-500/10 text-amber-200">
                             最優先
                           </span>
                         )}
                       </div>
-                      {task.description && (
-                        <p className="text-[12px] text-slate-200 line-clamp-2 mb-2">{task.description}</p>
+                      {quest.description && (
+                        <p className="text-[12px] text-slate-200 line-clamp-2 mb-2">
+                          {quest.description}
+                        </p>
                       )}
                       <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-200">
                         <span className="px-2 py-1 rounded-full border border-white/10 bg-white/5">
-                          予定 {task.plannedMinutes ?? 25}分
+                          予定 {quest.plannedMinutes ?? 25}分
                         </span>
                         <span className="px-2 py-1 rounded-full border border-white/10 bg-white/5">
-                          難易度: {task.difficulty}
+                          難易度: {quest.difficulty}
                         </span>
-                        {task.dueAt && (
+                        {quest.dueAt && (
                           <span className="px-2 py-1 rounded-full border border-white/10 bg-white/5">
-                            締切: {task.dueAt.toLocaleDateString()}
+                            締切: {quest.dueAt.toLocaleDateString()}
                           </span>
                         )}
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 items-end">
+                      <button
+                        onClick={() => handleEnterFocusMode(quest)}
+                        className="bg-black text-white border border-white px-3 py-1 rounded-md hover:bg-[#222] transition"
+                      >
+                        集中モード
+                      </button>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => onEdit(task)}
+                          onClick={() => onEdit(quest)}
                           className="p-2 rounded-lg border border-white/10 bg-white/5 text-slate-200 hover:border-cyan-400/60 hover:text-cyan-300 hover:bg-cyan-500/20 transition-all"
                         >
                           <TimerReset className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => onDelete(task.id)}
+                          onClick={() => onDelete(quest.id)}
                           className="p-2 rounded-lg border border-white/10 bg-white/5 text-slate-200 hover:border-red-400/60 hover:text-red-300 hover:bg-red-500/20 transition-all"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => onToggleTopPriority(task.id)}
-                          className={`p-2 rounded-lg border transition-all ${
-                            task.isTopPriority
+                          onClick={() => onToggleTopPriority(quest.id)}
+                          className={`p-2 rounded-lg border transition-all ${quest.isTopPriority
                               ? 'border-amber-400/70 bg-amber-500/20 text-amber-200'
                               : 'border-white/10 bg-white/5 text-slate-200 hover:border-amber-400/50 hover:text-amber-200 hover:bg-amber-500/10'
-                          }`}
+                            }`}
                           title="最優先にする"
                         >
                           <Star className="w-4 h-4 fill-current" />
                         </button>
                       </div>
                       <button
-                        onClick={() => onToggleStatus(task.id)}
-                        className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] transition-all ${
-                          task.status === 'COMPLETED'
+                        onClick={() => onToggleStatus(quest.id)}
+                        disabled={completingIds?.has(quest.id)}
+                        className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] transition-all ${quest.status === 'COMPLETED'
                             ? 'border-emerald-400/60 bg-emerald-500/30 text-emerald-200 hover:bg-emerald-500/40'
                             : 'border-emerald-400/60 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
-                        }`}
+                          } ${completingIds?.has(quest.id) ? 'opacity-60 cursor-not-allowed' : ''}`}
                       >
-                        {task.status === 'COMPLETED' ? '元に戻す' : '完了'}
+                        {quest.status === 'COMPLETED'
+                          ? '元に戻す'
+                          : completingIds?.has(quest.id)
+                            ? '処理中…'
+                            : '完了'}
                       </button>
                     </div>
                   </div>
 
                   {/* タイマー領域 */}
-                  {renderTimerControls(task)}
+                  {renderTimerControls(quest)}
                 </li>
               )
             })}

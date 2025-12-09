@@ -4,17 +4,19 @@ import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-export type TaskDifficulty = 'EASY' | 'NORMAL' | 'HARD'
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED'
+export type QuestDifficulty = 'EASY' | 'NORMAL' | 'HARD'
+export type QuestStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED'
 export type TimerColor = 'red' | 'black' | 'blue'
 
-export interface Task {
+export interface Quest {
   id: string
   title: string
   description?: string
-  difficulty: TaskDifficulty
+  difficulty: QuestDifficulty
   dueAt?: Date
-  status: TaskStatus
+  status: QuestStatus
+  isCompleted?: boolean
+  completedAt?: Date
   plannedMinutes: number
   isDaily?: boolean
   isUrgent?: boolean
@@ -23,17 +25,17 @@ export interface Task {
   estimateMinutes?: number // 互換用（今後は plannedMinutes を使用）
 }
 
-interface TaskModalProps {
+interface QuestFormModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (task: Omit<Task, 'id'>) => void
-  editingTask?: Task | null
+  onSave: (quest: Omit<Quest, 'id'>) => void
+  editingQuest?: Quest | null
 }
 
-export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalProps) {
+export function QuestFormModal({ isOpen, onClose, onSave, editingQuest }: QuestFormModalProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [difficulty, setDifficulty] = useState<TaskDifficulty>('NORMAL')
+  const [difficulty, setDifficulty] = useState<QuestDifficulty>('NORMAL')
   const [dueDate, setDueDate] = useState('')
   const [dueTime, setDueTime] = useState('')
   const [plannedMinutes, setPlannedMinutes] = useState('25')
@@ -77,12 +79,12 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalPro
   }
 
   useEffect(() => {
-    if (editingTask) {
-      setTitle(editingTask.title)
-      setDescription(editingTask.description || '')
-      setDifficulty(editingTask.difficulty)
-      if (editingTask.dueAt) {
-        const date = new Date(editingTask.dueAt)
+    if (editingQuest) {
+      setTitle(editingQuest.title)
+      setDescription(editingQuest.description || '')
+      setDifficulty(editingQuest.difficulty)
+      if (editingQuest.dueAt) {
+        const date = new Date(editingQuest.dueAt)
         setDueDate(formatDateInput(date))
         setDueTime(date.toTimeString().slice(0, 5))
       } else {
@@ -90,15 +92,14 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalPro
         setDueTime('')
       }
       setPlannedMinutes(
-        (editingTask.plannedMinutes ?? editingTask.estimateMinutes ?? 25).toString()
+        (editingQuest.plannedMinutes ?? editingQuest.estimateMinutes ?? 25).toString()
       )
-      setIsDaily(!!editingTask.isDaily)
-      setIsUrgent(!!editingTask.isUrgent)
-      setIsTopPriority(!!editingTask.isTopPriority)
-      setTimerColor(editingTask.timerColor ?? 'red')
+      setIsDaily(!!editingQuest.isDaily)
+      setIsUrgent(!!editingQuest.isUrgent)
+      setIsTopPriority(!!editingQuest.isTopPriority)
+      setTimerColor(editingQuest.timerColor ?? 'red')
       setPlannedMinutesError(null)
     } else {
-      // Reset form for new task
       setTitle('')
       setDescription('')
       setDifficulty('NORMAL')
@@ -111,7 +112,7 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalPro
       setTimerColor('red')
       setPlannedMinutesError(null)
     }
-  }, [editingTask, isOpen])
+  }, [editingQuest, isOpen])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -137,7 +138,7 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalPro
       description: description.trim() || undefined,
       difficulty,
       dueAt,
-      status: editingTask?.status || 'TODO',
+      status: editingQuest?.status || 'TODO',
       plannedMinutes: plannedSafe,
       isDaily,
       isUrgent,
@@ -179,10 +180,10 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalPro
             <header className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-white/10">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.25em] text-cyan-300">
-                  {editingTask ? 'クエスト編集' : '新規クエスト'}
+                  {editingQuest ? 'クエスト編集' : '新規クエスト'}
                 </p>
                 <h2 className="text-lg font-semibold text-slate-50 mt-1">
-                  {editingTask ? 'クエストを更新' : 'クエストを追加'}
+                  {editingQuest ? 'クエストを更新' : 'クエストを追加'}
                 </h2>
               </div>
               <button
@@ -195,7 +196,7 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalPro
 
             {/* Form body (scrollable) */}
             <form
-              id="task-modal-form"
+              id="quest-modal-form"
               onSubmit={handleSubmit}
               className="flex-1 overflow-y-auto px-6 pb-6 space-y-5"
             >
@@ -235,7 +236,7 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalPro
                   難易度
                 </label>
                 <div className="grid grid-cols-3 gap-2">
-                  {(['EASY', 'NORMAL', 'HARD'] as TaskDifficulty[]).map((diff) => (
+                  {(['EASY', 'NORMAL', 'HARD'] as QuestDifficulty[]).map((diff) => (
                     <button
                       key={diff}
                       type="button"
@@ -316,17 +317,17 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalPro
                     <div className="flex items-center gap-1 text-xs">
                       <button
                         type="button"
-                        onClick={() => adjustPlannedMinutes(-1)}
-                        className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-100 transition"
+                        onClick={() => adjustPlannedMinutes(-15)}
+                        className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-100 transition"
                       >
-                        -1
+                        -15分
                       </button>
                       <button
                         type="button"
-                        onClick={() => adjustPlannedMinutes(1)}
-                        className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-100 transition"
+                        onClick={() => adjustPlannedMinutes(-5)}
+                        className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-100 transition"
                       >
-                        +1
+                        -5分
                       </button>
                       <button
                         type="button"
@@ -344,9 +345,7 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalPro
                       </button>
                     </div>
                   </div>
-                  {plannedMinutesError && (
-                    <p className="text-xs text-red-300">{plannedMinutesError}</p>
-                  )}
+                  {plannedMinutesError && <p className="text-xs text-red-300">{plannedMinutesError}</p>}
                 </div>
               </div>
 
@@ -420,10 +419,10 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalPro
               </button>
               <button
                 type="submit"
-                form="task-modal-form"
+                form="quest-modal-form"
                 className="px-4 py-2.5 rounded-xl border border-cyan-400/60 bg-cyan-500/20 text-cyan-200 hover:bg-cyan-500/30 hover:shadow-[0_0_18px_rgba(34,211,238,0.6)] transition-all text-sm font-semibold uppercase tracking-[0.1em]"
               >
-                {editingTask ? '更新' : '作成'}
+                {editingQuest ? '更新' : '作成'}
               </button>
             </footer>
           </div>
@@ -432,4 +431,5 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }: TaskModalPro
     </AnimatePresence>
   )
 }
+
 
